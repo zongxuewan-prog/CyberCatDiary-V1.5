@@ -211,7 +211,7 @@
     <div class="image-grid" id="image-grid">
       <!-- 图片将通过 JavaScript 动态生成 -->
     </div>
-    <a href="neon-arcade-menu.html" class="back-btn" data-transition>返回</a>
+    <a href="neon-arcade-menu.html" class="back-btn" id="back-btn">返回</a>
   </div>
   <img src="4e21a342-192a-4c88-9394-0a5f0899d8f2-removebg-preview.png" alt="像素猫" class="cat-image" id="cat">
   <div class="mosaic-flash" id="mosaic-overlay"></div>
@@ -222,7 +222,7 @@
     const galleryTitle = document.querySelector('.gallery-title');
 
     function loadImages() {
-      fetch('http://localhost:3000/api/images', {
+      fetch('/api/images', {
         credentials: 'include'
       })
       .then(res => res.json())
@@ -256,9 +256,11 @@
       images.forEach((img, index) => {
         const card = document.createElement('div');
         card.className = 'image-card';
+        const dateStr = img.created_date || new Date(img.created_at).toLocaleDateString('zh-CN');
         card.innerHTML = `
           <img src="${img.image_url}" alt="生成的图片" onclick="viewImage('${img.image_url}', '${img.prompt.replace(/'/g, "\\'")}')">
           <div class="caption">${img.prompt || '无题'}</div>
+          <div class="caption" style="font-size: 8px; color: var(--muted); margin-top: 4px;">📅 ${dateStr}</div>
         `;
         imageGrid.appendChild(card);
       });
@@ -267,6 +269,7 @@
     function viewImage(url, prompt) {
       sessionStorage.setItem('generatedImageUrl', url);
       sessionStorage.setItem('generatedImagePrompt', prompt);
+      sessionStorage.setItem('skipMosaic', 'true');
       window.location.href = 'neon-arcade-gallery.html';
     }
 
@@ -401,7 +404,14 @@
 
     initPageTransition();
 
-    // 返回按钮由 data-transition 属性统一处理
+    // 返回按钮：先刷新再跳转
+    document.getElementById('back-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      loadImages();
+      setTimeout(() => {
+        navigateToPage('neon-arcade-menu.html');
+      }, 300);
+    });
   </script>
 </body>
 </html>

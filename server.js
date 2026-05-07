@@ -7,7 +7,7 @@ const path = require('path');
 const https = require('https');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Wavespeed API 配置
 const WAVESPEED_API_KEY = '5f1c528cca5f7931bcfbd2d39742a9cefae16d14541343c256d15faad72fb939';
@@ -20,7 +20,7 @@ const XUNFEI_MODEL = 'astron-code-latest';
 
 // 中间件
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'https://thriving-appreciation-production-92de.up.railway.app'],
   credentials: true
 }));
 app.use(express.json());
@@ -68,6 +68,7 @@ const db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'), (err) =
         image_url TEXT NOT NULL,
         api_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_date TEXT,
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
     `, (err) => {
@@ -75,6 +76,8 @@ const db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'), (err) =
         console.error('创建图片表失败:', err);
       } else {
         console.log('图片表已就绪');
+        // 添加 created_date 列（如果不存在）
+        db.run(`ALTER TABLE images ADD COLUMN created_date TEXT`, () => {});
       }
     });
   }
@@ -224,17 +227,17 @@ app.post('/api/generate-image', async (req, res) => {
     return res.status(400).json({ success: false, message: '请输入描述文字' });
   }
 
-  // 整合用户资料到 prompt 中
+  // 整合用户资料到 prompt 中（降低权重，仅轻微影响）
   let enhancedPrompt = prompt;
-  if (userProfile && Object.keys(userProfile).length > 0) {
+  if (userProfile && Object.keys(userProfile).length > 0 && prompt.length > 50) {
+    // 只在 prompt 较长时轻微添加用户背景，且放在末尾作为次要上下文
     const profileParts = [];
-    if (userProfile.country) profileParts.push(`来自${userProfile.country}`);
-    if (userProfile.age) profileParts.push(`年龄段${userProfile.age}`);
-    if (userProfile.occupation) profileParts.push(`职业是${userProfile.occupation}`);
-    if (userProfile.gender) profileParts.push(`性别${userProfile.gender}`);
+    if (userProfile.occupation) profileParts.push(`${userProfile.occupation}`);
+    if (userProfile.age) profileParts.push(`${userProfile.age}年龄段`);
 
     if (profileParts.length > 0) {
-      enhancedPrompt = `${prompt}. 这是为一位${profileParts.join('、')}的用户生成的图片。`;
+      // 使用较弱的连接词，降低对用户 prompt 主干的影响
+      enhancedPrompt = `${prompt} （风格参考：${profileParts.join('、')}的视角）`;
     }
   }
 
@@ -277,9 +280,10 @@ app.post('/api/generate-image', async (req, res) => {
 
           // 如果用户已登录，保存图片到数据库
           if (userId) {
+            const createdDate = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
             db.run(
-              'INSERT INTO images (user_id, prompt, image_url, api_id) VALUES (?, ?, ?, ?)',
-              [userId, prompt, imageUrl, apiId],
+              'INSERT INTO images (user_id, prompt, image_url, api_id, created_date) VALUES (?, ?, ?, ?, ?)',
+              [userId, prompt, imageUrl, apiId, createdDate],
               (err) => {
                 if (err) {
                   console.error('保存图片失败:', err);
