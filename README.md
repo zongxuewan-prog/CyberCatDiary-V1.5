@@ -2,19 +2,10 @@
 
 霓虹风格的用户登录注册系统
 
-## 快速开始
 
-### 1. 启动服务器
+### 1. 打开浏览器
 
-```bash
-npm start
-```
-
-服务器将运行在 `http://localhost:3000`
-
-### 2. 打开浏览器
-
-访问 `http://localhost:3000/neon-arcade-login-cn-7.html`
+访问 `https://caring-wonder-production-d5c1.up.railway.app`
 
 ## 功能
 
